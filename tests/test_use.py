@@ -19,13 +19,18 @@ class Bar:
         self.x = y[0]                 # 5
         self.y[1] = y[0]              # 6
         self.x = y[0]                 # 7
-        return x + 2 + constants.BAZ  # 8
+        x + 2 + constants.BAZ         # 8
+        z = []                        # 9
+        z.append(3)                   # 10
 
 # ==========
 
 @pytest.fixture
 def ta():
     return taint(Bar.foo)
+
+def test_function_write(ta):
+    assert ta.write_lines['z'] == [9, 10]
 
 def test_simple_read(ta):
     assert ta.read_lines['x'] == [8]

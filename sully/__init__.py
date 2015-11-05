@@ -51,6 +51,18 @@ class TaintAnalysis(ast.NodeVisitor):
         if isinstance(node.ctx, ast.Load) and node.id != 'self':
             self.read_lines[node.id].append(node.lineno)
 
+    # Record reads and writes from functions called within our function
+    def visit_Call(self, node):
+        if isinstance(node.func, ast.Name):
+            if node.func.id == 'self':
+                # TODO Handle calls to helper functions
+                pass
+
+            raise Exception()
+        elif isinstance(node.func, ast.Attribute):
+            # Assume function calls on objects modify data
+            self.write_lines[self.get_id(node.func.value)].append(node.lineno)
+
 # Simple wrapper for the TaintAnalysis visitor given a function
 def taint(func):
     # Get the source code of the function and parse the AST
