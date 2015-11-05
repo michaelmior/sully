@@ -1,4 +1,5 @@
 # Sully
+[![Build Status](https://travis-ci.org/michaelmior/sully.svg?branch=master)](https://travis-ci.org/michaelmior/sully)
 
 ![Sully](https://www.kelloggsfamilyrewards.com/content/dam/kelloggsfamilyrewards/en_US/promotions/microsites/monsters/hiw/blue.png)
 
