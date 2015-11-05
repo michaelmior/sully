@@ -12,6 +12,9 @@ class Bar:
     x = 2
     y = [4, 5, 6]
 
+    def helper(self, x):
+        return x
+
     def foo(self):                    # 1
         y = [1, 2, 3]                 # 2
         x = 3 + y[1]                  # 3
@@ -22,6 +25,10 @@ class Bar:
         x + 2 + constants.BAZ         # 8
         z = []                        # 9
         z.append(3)                   # 10
+        a = 3                         # 11
+        b = []                        # 12
+        c = {}                        # 13
+        self.helper(a, *b, **c)       # 14
 
 # ==========
 
@@ -52,3 +59,8 @@ def test_array_read(ta):
 
 def test_array_write(ta):
     assert ta.write_lines['y'] == [2]
+
+def test_parameter_read(ta):
+    assert ta.read_lines['a'] == [14]
+    assert ta.read_lines['b'] == [14]
+    assert ta.read_lines['c'] == [14]

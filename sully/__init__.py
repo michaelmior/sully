@@ -63,6 +63,14 @@ class TaintAnalysis(ast.NodeVisitor):
             # Assume function calls on objects modify data
             self.write_lines[self.get_id(node.func.value)].append(node.lineno)
 
+        # Visit function parameters to record reads
+        for arg in node.args:
+            self.visit(arg)
+        if node.starargs:
+            self.visit(node.starargs)
+        if node.kwargs:
+            self.visit(node.kwargs)
+
 # Simple wrapper for the TaintAnalysis visitor given a function
 def taint(func):
     # Get the source code of the function and parse the AST
