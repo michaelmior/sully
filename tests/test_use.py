@@ -1,6 +1,6 @@
 import pytest
 
-from sully import taint
+from sully import TaintAnalysis
 
 # Below are simple objects we use for testing
 # ==========
@@ -33,34 +33,34 @@ class Bar:
 # ==========
 
 @pytest.fixture
-def ta():
-    return taint(Bar.foo)
+def taint():
+    return TaintAnalysis(Bar.foo)
 
-def test_function_write(ta):
-    assert ta.write_lines['z'] == [9, 10]
+def test_function_write(taint):
+    assert taint.write_lines['z'] == [9, 10]
 
-def test_simple_read(ta):
-    assert ta.read_lines['x'] == [8]
+def test_simple_read(taint):
+    assert taint.read_lines['x'] == [8]
 
-def test_simple_write(ta):
-    assert ta.write_lines['x'] == [3]
+def test_simple_write(taint):
+    assert taint.write_lines['x'] == [3]
 
-def test_self_read(ta):
-    assert ta.read_lines[('self', 'x')] == [4]
+def test_self_read(taint):
+    assert taint.read_lines[('self', 'x')] == [4]
 
-def test_self_write(ta):
-    assert ta.write_lines[('self', 'x')] == [5, 7]
+def test_self_write(taint):
+    assert taint.write_lines[('self', 'x')] == [5, 7]
 
-def test_constant_read(ta):
-    assert ta.read_lines[('constants', 'BAZ')] == [8]
+def test_constaint(taint):
+    assert taint.read_lines[('constants', 'BAZ')] == [8]
 
-def test_array_read(ta):
-    assert ta.read_lines['y'] == [4]
+def test_array_read(taint):
+    assert taint.read_lines['y'] == [4]
 
-def test_array_write(ta):
-    assert ta.write_lines['y'] == [2]
+def test_array_write(taint):
+    assert taint.write_lines['y'] == [2]
 
-def test_parameter_read(ta):
-    assert ta.read_lines['a'] == [14]
-    assert ta.read_lines['b'] == [14]
-    assert ta.read_lines['c'] == [14]
+def test_parameter_read(taint):
+    assert taint.read_lines['a'] == [14]
+    assert taint.read_lines['b'] == [14]
+    assert taint.read_lines['c'] == [14]

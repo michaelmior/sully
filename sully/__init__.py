@@ -4,12 +4,22 @@ import inspect
 
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
-    def __init__(self, *args, **kwargs):
-        super(TaintAnalysis, self).__init__(*args, **kwargs)
+    def __init__(self, func):
+        super(TaintAnalysis, self).__init__()
 
         # Initialize lists to track usage
         self.read_lines = defaultdict(list)
         self.write_lines = defaultdict(list)
+
+        # Get the source code of the function and parse the AST
+        source = inspect.getsourcelines(func)[0]
+        spaces = len(source[0]) - len(source[0].lstrip())
+        source = [line[spaces:] for line in source if not line.isspace()]
+        source = ''.join(line for line in source if line[0] != '@')
+        func_ast = ast.parse(source)
+
+        # Start visiting the root of the function's AST
+        self.visit(func_ast)
 
     # Get the identifier to use when recording a read/write
     def get_id(self, node):
@@ -73,14 +83,6 @@ class TaintAnalysis(ast.NodeVisitor):
 
 # Simple wrapper for the TaintAnalysis visitor given a function
 def taint(func):
-    # Get the source code of the function and parse the AST
-    source = inspect.getsourcelines(func)[0]
-    spaces = len(source[0]) - len(source[0].lstrip())
-    source = [line[spaces:] for line in source if not line.isspace()]
-    source = ''.join(line for line in source if line[0] != '@')
-    func_ast = ast.parse(source)
-
     # Perform the analysis
-    ta = TaintAnalysis()
-    ta.visit(func_ast)
+    ta = TaintAnalysis(func)
     return ta
