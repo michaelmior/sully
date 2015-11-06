@@ -7,7 +7,10 @@ import itertools
 class TaintAnalysis(ast.NodeVisitor):
     def __init__(self, func, taint_obj=None):
         self.func = func
-        self.taint_obj = taint_obj
+        if taint_obj is not None:
+            self.taint_obj = ast.parse(taint_obj).body[0].value
+        else:
+            self.taint_obj = None
         super(TaintAnalysis, self).__init__()
 
         # Initialize lists to track usage
@@ -115,7 +118,6 @@ class TaintAnalysis(ast.NodeVisitor):
 
     # Record a read of a simple variable
     def visit_Name(self, node):
-        print('NAME: %d' % id(node))
         # This ignores parameter names and references to self since
         # we will capture these when we visit Attribute nodes
         if isinstance(node.ctx, ast.Load) and node.id != 'self':
@@ -123,15 +125,12 @@ class TaintAnalysis(ast.NodeVisitor):
 
     # Record reads and writes from functions called within our function
     def visit_Call(self, node):
-        print('CALL!')
-        print(ast.dump(node))
-        print(self.taint_obj)
         if isinstance(node.func, ast.Attribute):
             # Assume function calls on objects modify data
             self.write_lines[self.get_id(node.func.value)].append(node.lineno)
 
             # Record this node as one which introduces taint
-            if node.func.value.id == self.taint_obj:
+            if nodes_equal(node.func.value, self.taint_obj):
                 self.taint_exprs.add(node)
 
             if node.func.value.id == 'self':
@@ -172,6 +171,9 @@ class TaintAnalysis(ast.NodeVisitor):
 
 # Check if two AST nodes are equal
 def nodes_equal(node1, node2):
+    if node1 is None or node2 is None:
+        return False
+
     # Initialize iterators over both trees
     walk1 = ast.walk(node1)
     walk2 = ast.walk(node2)
