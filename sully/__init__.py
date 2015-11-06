@@ -4,13 +4,16 @@ import inspect
 
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
-    def __init__(self, func):
+    def __init__(self, func, taint_obj=None):
         self.func = func
+        self.taint_obj = taint_obj
         super(TaintAnalysis, self).__init__()
 
         # Initialize lists to track usage
         self.read_lines = defaultdict(list)
         self.write_lines = defaultdict(list)
+        self.taint_exprs = set()
+        self.tainted_by = defaultdict(list)
 
         # Get the source code of the function and parse the AST
         source = inspect.getsourcelines(func)[0]
@@ -42,12 +45,67 @@ class TaintAnalysis(ast.NodeVisitor):
             print(node._fields)
             raise Exception()
 
+    # Initialize the taint information and then visit the node
+    def visit(self, node):
+        super(TaintAnalysis, self).visit(node)
+
     # Record a write to a given value
     def visit_Assign(self, node):
         self.visit(node.value)
 
         for target in node.targets:
             self.write_lines[self.get_id(target)].append(node.lineno)
+
+            # If the assigned value is tainted, copy the taint
+            if node.value in self.taint_exprs:
+                self.tainted_by[target].extend(self.tainted_by[node.value][:])
+                self.taint_exprs.add(target)
+
+    # Copy the taint for comparison operators
+    def visit_Compare(self, node):
+        # XXX We only handle a single comparison
+        if len(node.ops) != 1 or len(node.comparators) != 1:
+            raise Exception()
+
+        if node.left in self.taint_exprs:
+            self.tainted_by[node].extend(self.tainted_by[node.left][:])
+            self.taint_exprs.add(node)
+        self.visit(node.left)
+
+        if node.comparators[0] in self.taint_exprs:
+            self.tainted_by[node].extend(
+                    self.tainted_by[node.comparators[0]][:])
+            self.taint_exprs.add(node)
+        self.visit(node.comparators[0])
+
+    # Copy the taint for unary operators
+    def visit_UnaryOp(self, node):
+        if node.operand in self.taint_exprs:
+            self.tainted_by[node].extend(self.tainted_by[node.operand][:])
+            self.taint_exprs.add(node)
+
+        self.visit(node.operand)
+
+    # Copy the taint for boolean operators
+    def visit_BoolOp(self, node):
+        for value in node.values:
+            if value in self.taint_exprs:
+                self.tainted_by[target].extend(self.tainted_by[value][:])
+                self.taint_exprs.add(node)
+
+            self.visit(value)
+
+    # Copy the taint for binary operators
+    def visit_BinOp(self, node):
+        if node.left in self.taint_exprs:
+            self.tainted_by[node].extend(self.tainted_by[node.left][:])
+            self.taint_exprs.add(node)
+        self.visit(node.left)
+
+        if node.right in self.taint_exprs:
+            self.tainted_by[node].extend(self.tainted_by[node.right][:])
+            self.taint_exprs.add(node)
+        self.visit(node.right)
 
     # Record a read of an attribute on some value
     def visit_Attribute(self, node):
@@ -56,6 +114,7 @@ class TaintAnalysis(ast.NodeVisitor):
 
     # Record a read of a simple variable
     def visit_Name(self, node):
+        print('NAME: %d' % id(node))
         # This ignores parameter names and references to self since
         # we will capture these when we visit Attribute nodes
         if isinstance(node.ctx, ast.Load) and node.id != 'self':
@@ -63,9 +122,16 @@ class TaintAnalysis(ast.NodeVisitor):
 
     # Record reads and writes from functions called within our function
     def visit_Call(self, node):
+        print('CALL!')
+        print(ast.dump(node))
+        print(self.taint_obj)
         if isinstance(node.func, ast.Attribute):
             # Assume function calls on objects modify data
             self.write_lines[self.get_id(node.func.value)].append(node.lineno)
+
+            # Record this node as one which introduces taint
+            if node.func.value.id == self.taint_obj:
+                self.taint_exprs.add(node)
 
             if node.func.value.id == 'self':
                 other_func = getattr(self.func.im_class, node.func.attr)
