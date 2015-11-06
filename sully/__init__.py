@@ -42,9 +42,6 @@ class TaintAnalysis(ast.NodeVisitor):
             print(node._fields)
             raise Exception()
 
-    # TODO Detect modification via .append(...) and .insert(...)
-    #      and helper function calls
-
     # Record a write to a given value
     def visit_Assign(self, node):
         for target in node.targets:
