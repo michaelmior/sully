@@ -57,7 +57,7 @@ def test_constaint(taint):
     assert taint.read_lines[('constants', 'BAZ')] == [8]
 
 def test_array_read(taint):
-    assert taint.read_lines['y'] == [4]
+    assert taint.read_lines['y'] == [3, 4, 5, 6, 7]
 
 def test_array_write(taint):
     assert taint.write_lines['y'] == [2]

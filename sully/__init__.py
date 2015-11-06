@@ -44,6 +44,8 @@ class TaintAnalysis(ast.NodeVisitor):
 
     # Record a write to a given value
     def visit_Assign(self, node):
+        self.visit(node.value)
+
         for target in node.targets:
             self.write_lines[self.get_id(target)].append(node.lineno)
 
