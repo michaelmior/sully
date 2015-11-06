@@ -5,6 +5,7 @@ import inspect
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
     def __init__(self, func):
+        self.func = func
         super(TaintAnalysis, self).__init__()
 
         # Initialize lists to track usage
@@ -63,15 +64,37 @@ class TaintAnalysis(ast.NodeVisitor):
 
     # Record reads and writes from functions called within our function
     def visit_Call(self, node):
-        if isinstance(node.func, ast.Name):
-            if node.func.id == 'self':
-                # TODO Handle calls to helper functions
-                pass
-
-            raise Exception()
-        elif isinstance(node.func, ast.Attribute):
+        if isinstance(node.func, ast.Attribute):
             # Assume function calls on objects modify data
             self.write_lines[self.get_id(node.func.value)].append(node.lineno)
+
+            if node.func.value.id == 'self':
+                other_func = getattr(self.func.im_class, node.func.attr)
+                other_args = inspect.getargspec(other_func).args[1:]
+                ta = TaintAnalysis(other_func)
+
+                # Check arguments which were read written
+                # Note that we're being pessimistic for writes here since
+                # assignments just "write" to the local variable for parameter
+                # XXX Doesn't work for functions with starargs or kwargs
+                for i, arg in enumerate(node.args):
+                    if isinstance(arg, ast.Name):
+                        arg_name = other_args[i]
+                        if ta.read_lines.has_key(arg_name):
+                            self.read_lines[arg.id].append(node.lineno)
+                        if ta.write_lines.has_key(arg_name):
+                            self.write_lines[arg.id].append(node.lineno)
+
+                # Copy over attribute nodes which were read or written
+                for var, _ in ta.read_lines.items():
+                    if isinstance(var, tuple):
+                        self.read_lines[var].append(node.lineno)
+
+                for var, _ in ta.write_lines.items():
+                    if isinstance(var, tuple):
+                        self.write_lines[var].append(node.lineno)
+        else:
+            raise Exception()
 
         # Visit function parameters to record reads
         for arg in node.args:
@@ -80,9 +103,3 @@ class TaintAnalysis(ast.NodeVisitor):
             self.visit(node.starargs)
         if node.kwargs:
             self.visit(node.kwargs)
-
-# Simple wrapper for the TaintAnalysis visitor given a function
-def taint(func):
-    # Perform the analysis
-    ta = TaintAnalysis(func)
-    return ta

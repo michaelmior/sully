@@ -13,7 +13,9 @@ class Bar:
     y = [4, 5, 6]
 
     def helper(self, x):
-        return x
+        x.append(2)
+        self.a = 3
+        return self.z
 
     def foo(self):                    # 1
         y = [1, 2, 3]                 # 2
@@ -25,7 +27,7 @@ class Bar:
         x + 2 + constants.BAZ         # 8
         z = []                        # 9
         z.append(3)                   # 10
-        a = 3                         # 11
+        a = []                        # 11
         b = []                        # 12
         c = {}                        # 13
         self.helper(a, *b, **c)       # 14
@@ -64,3 +66,12 @@ def test_parameter_read(taint):
     assert taint.read_lines['a'] == [14]
     assert taint.read_lines['b'] == [14]
     assert taint.read_lines['c'] == [14]
+
+def test_helper_read(taint):
+    assert taint.read_lines[('self', 'z')] == [14]
+
+def test_helper_write(taint):
+    assert taint.write_lines[('self', 'a')] == [14]
+
+def test_helper_parameter_write(taint):
+    assert taint.write_lines['a'] == [11, 14]
