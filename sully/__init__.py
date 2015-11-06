@@ -49,6 +49,12 @@ class TaintAnalysis(ast.NodeVisitor):
             print(node._fields)
             raise Exception()
 
+    # Check ant propagate taint if necessary
+    def check_add_taint(self, source, target):
+        if source in self.taint_exprs:
+            self.tainted_by[target].extend(self.tainted_by[source][:])
+            self.taint_exprs.add(target)
+
     # Initialize the taint information and then visit the node
     def visit(self, node):
         super(TaintAnalysis, self).visit(node)
@@ -59,11 +65,7 @@ class TaintAnalysis(ast.NodeVisitor):
 
         for target in node.targets:
             self.write_lines[self.get_id(target)].append(node.lineno)
-
-            # If the assigned value is tainted, copy the taint
-            if node.value in self.taint_exprs:
-                self.tainted_by[target].extend(self.tainted_by[node.value][:])
-                self.taint_exprs.add(target)
+            self.check_add_taint(node.value, target)
 
     # Copy the taint for comparison operators
     def visit_Compare(self, node):
@@ -71,45 +73,31 @@ class TaintAnalysis(ast.NodeVisitor):
         if len(node.ops) != 1 or len(node.comparators) != 1:
             raise Exception()
 
-        if node.left in self.taint_exprs:
-            self.tainted_by[node].extend(self.tainted_by[node.left][:])
-            self.taint_exprs.add(node)
         self.visit(node.left)
+        self.check_add_taint(node.left, node)
 
-        if node.comparators[0] in self.taint_exprs:
-            self.tainted_by[node].extend(
-                    self.tainted_by[node.comparators[0]][:])
-            self.taint_exprs.add(node)
         self.visit(node.comparators[0])
+        self.check_add_taint(node.comparators[0], node)
 
     # Copy the taint for unary operators
     def visit_UnaryOp(self, node):
-        if node.operand in self.taint_exprs:
-            self.tainted_by[node].extend(self.tainted_by[node.operand][:])
-            self.taint_exprs.add(node)
-
         self.visit(node.operand)
+        self.check_add_taint(node.operand, node)
 
     # Copy the taint for boolean operators
     def visit_BoolOp(self, node):
         for value in node.values:
-            if value in self.taint_exprs:
-                self.tainted_by[target].extend(self.tainted_by[value][:])
-                self.taint_exprs.add(node)
-
             self.visit(value)
+            self.check_add_taint(value, node)
+
 
     # Copy the taint for binary operators
     def visit_BinOp(self, node):
-        if node.left in self.taint_exprs:
-            self.tainted_by[node].extend(self.tainted_by[node.left][:])
-            self.taint_exprs.add(node)
         self.visit(node.left)
+        self.check_add_taint(node.left, node)
 
-        if node.right in self.taint_exprs:
-            self.tainted_by[node].extend(self.tainted_by[node.right][:])
-            self.taint_exprs.add(node)
         self.visit(node.right)
+        self.check_add_taint(node.right, node)
 
     # Record a read of an attribute on some value
     def visit_Attribute(self, node):
