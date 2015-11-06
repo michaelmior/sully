@@ -8,9 +8,10 @@ from sully import TaintAnalysis
 
 class Bar:
     def foo(self, tainted):
-        x = tainted.baz()
-        y = 3
-        return x
+        x = tainted.baz()              # 2
+        tainted.foo(x)                 # 3
+        y = 3                          # 4
+        return x                       # 5
 
 # ==========
 
@@ -24,4 +25,8 @@ def test_taint_var(taint):
 
 def test_notaint_var(taint):
     assert not any(isinstance(expr, ast.Name) and expr.id == 'y'
+            for expr in taint.taint_exprs)
+
+def test_taint_call(taint):
+    assert any(isinstance(expr, ast.Call) and expr.lineno == 3
             for expr in taint.taint_exprs)
