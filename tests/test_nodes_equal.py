@@ -4,7 +4,7 @@ from sully import nodes_equal
 
 # Helper function to get the AST from an expression
 def parse_source(source):
-    return ast.parse(source).body[0]
+    return ast.parse(source).body[0].value
 
 def test_names_equal():
     assert nodes_equal(ast.Name(id='foo', ctx=ast.Load()),
