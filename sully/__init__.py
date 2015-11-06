@@ -1,6 +1,7 @@
 import ast
 from collections import defaultdict
 import inspect
+import itertools
 
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
@@ -168,3 +169,32 @@ class TaintAnalysis(ast.NodeVisitor):
             self.visit(node.starargs)
         if node.kwargs:
             self.visit(node.kwargs)
+
+# Check if two AST nodes are equal
+def nodes_equal(node1, node2):
+    # Initialize iterators over both trees
+    walk1 = ast.walk(node1)
+    walk2 = ast.walk(node2)
+
+    for node1, node2 in itertools.izip(walk1, walk2):
+        # Check that there are the same number of fields
+        if len(node1._fields) != len(node2._fields):
+            return False
+
+        # Check that all field values are equal
+        for field1, field2 in itertools.izip(node1._fields, node2._fields):
+            if field1 != field2:
+                return False
+
+            # Get the field values from each node
+            value1 = getattr(node1, field1)
+            value2 = getattr(node2, field2)
+
+            # Recursively check all nodes
+            if isinstance(value1, ast.AST) and isinstance(value2, ast.AST):
+                if not nodes_equal(value1, value2):
+                    return False
+            elif value1 != value2:
+                return False
+
+    return True
