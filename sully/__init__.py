@@ -13,8 +13,7 @@ def get_func_source(func):
 # Produce the AST for the body of a function
 def get_func_ast(func):
     source = get_func_source(func)
-    ast = ast.parse(source)
-    return ast.body[0].body
+    return ast.parse(source).body[0].body
 
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
