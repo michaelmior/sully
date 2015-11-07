@@ -3,6 +3,19 @@ from collections import defaultdict
 import inspect
 import itertools
 
+# Get the source code of a function
+def get_func_source(func):
+    source = inspect.getsourcelines(func)[0]
+    spaces = len(source[0]) - len(source[0].lstrip())
+    source = [line[spaces:] for line in source if not line.isspace()]
+    return ''.join(line for line in source if line[0] != '@')
+
+# Produce the AST for the body of a function
+def get_func_ast(func):
+    source = get_func_source(func)
+    ast = ast.parse(source)
+    return ast.body[0].body
+
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
     def __init__(self, func, taint_obj=None):
@@ -20,10 +33,7 @@ class TaintAnalysis(ast.NodeVisitor):
         self.tainted_by = defaultdict(list)
 
         # Get the source code of the function and parse the AST
-        source = inspect.getsourcelines(func)[0]
-        spaces = len(source[0]) - len(source[0].lstrip())
-        source = [line[spaces:] for line in source if not line.isspace()]
-        source = ''.join(line for line in source if line[0] != '@')
+        source = get_func_source(func)
         func_ast = ast.parse(source)
 
         # Start visiting the root of the function's AST
