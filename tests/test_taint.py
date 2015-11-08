@@ -28,6 +28,11 @@ def test_taint_var(taint):
     assert found_var is not None
     assert isinstance(found_var.parent, ast.Assign)
 
+    ancestors = found_var.ancestors()
+    assert isinstance(ancestors[0], ast.Assign)
+    assert isinstance(ancestors[1], ast.FunctionDef)
+    assert isinstance(ancestors[2], ast.Module)
+
 def test_notaint_var(taint):
     assert not any(isinstance(expr, ast.Name) and expr.id == 'y'
             for expr in taint.taint_exprs)

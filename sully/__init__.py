@@ -15,6 +15,19 @@ def get_func_ast(func):
     source = get_func_source(func)
     return ast.parse(source).body[0].body
 
+# Get all the ancestors of the current node
+def _ancestors(self):
+    # Start with the current parent and no ancestors
+    parent = self.parent
+    ancestors = []
+
+    # Keep going up parents and tracking ancestors until we hit the top
+    while parent is not None:
+        ancestors.append(parent)
+        parent = parent.parent
+
+    return ancestors
+
 # Track parents of AST nodes
 class ParentTransformer(ast.NodeTransformer):
     def visit(self, node, parent=None):
@@ -30,8 +43,9 @@ class ParentTransformer(ast.NodeTransformer):
             else:
                 self.visit(value, node)
 
-        # Assign the parent and return the node
+        # Assign the parent and ancestors method and return the node
         node.parent = parent
+        node.ancestors = _ancestors.__get__(node, ast.AST)
         return node
 
 # Traverse the AST to identify reads and writes to values
