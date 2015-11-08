@@ -15,6 +15,25 @@ def get_func_ast(func):
     source = get_func_source(func)
     return ast.parse(source).body[0].body
 
+# Track parents of AST nodes
+class ParentTransformer(ast.NodeTransformer):
+    def visit(self, node, parent=None):
+        # Ignore things which are not nodes
+        if not isinstance(node, ast.AST):
+            return
+
+        # Recursively visit children
+        for _, value in ast.iter_fields(node):
+            if isinstance(value, list):
+                for item in value:
+                    self.visit(item, node)
+            else:
+                self.visit(value, node)
+
+        # Assign the parent and return the node
+        node.parent = parent
+        return node
+
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
     def __init__(self, func, taint_obj=None):
@@ -36,6 +55,7 @@ class TaintAnalysis(ast.NodeVisitor):
         func_ast = ast.parse(source)
 
         # Start visiting the root of the function's AST
+        func_ast = ParentTransformer().visit(func_ast)
         self.visit(func_ast)
 
     # Get the identifier to use when recording a read/write
