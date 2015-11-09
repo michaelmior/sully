@@ -43,5 +43,5 @@ def test_block_list(taint):
 
 def test_block_inout(taint):
     in_exprs, out_exprs = block_inout(taint.func_ast, 3, 6)
-    assert in_exprs == set(['x', 'y'])
+    assert in_exprs == set(['x'])
     assert out_exprs == set(['x'])

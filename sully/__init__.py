@@ -290,11 +290,20 @@ def block_inout(func_ast, minlineno, maxlineno):
 
     in_exprs = set()
     for obj, lines in taint.read_lines.iteritems():
-        for lineno in lines:
-            if lineno >= minlineno and lineno <= maxlineno:
-                in_exprs.add(obj)
+        # Check if any read happens within our range
+        in_range = any(lineno >= minlineno and lineno <= maxlineno
+                for lineno in lines)
 
-    # TODO Check for values read which are initialized within this block
+        # Check if this is a function local variable
+        is_local = not isinstance(obj, tuple)
+
+        # Check if there were any previous writes in the function to this value
+        written_before = any(lineno < minlineno
+                for lineno in taint.write_lines[obj])
+
+        # If in range and not a local used only in this block, include it
+        if in_range and (not is_local or written_before):
+            in_exprs.add(obj)
 
     out_exprs = set()
     for obj, lines in taint.write_lines.iteritems():
