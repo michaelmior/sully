@@ -254,8 +254,13 @@ def nodes_equal(node1, node2):
 
 # Produce an AST which contains the necessary lines in the function
 def block_including(func_ast, minlineno, maxlineno):
+    if isinstance(func_ast, ast.Module):
+        func_body = func_ast.body[0].body
+    else:
+        func_body = func_ast
+
     body = []
-    for node in func_ast.body[0].body:
+    for node in func_body:
         # If the two ranges overlap, save this node
         minrange = max(node.minlineno, minlineno)
         maxrange = min(node.maxlineno, maxlineno)

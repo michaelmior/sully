@@ -35,3 +35,8 @@ def test_block(taint):
     block = block_including(taint.func_ast, 5, 6)
     assert len(block) == 1
     assert isinstance(block[0], ast.For)
+
+def test_block_list(taint):
+    block = block_including(taint.func_ast.body[0].body, 5, 6)
+    assert len(block) == 1
+    assert isinstance(block[0], ast.For)
