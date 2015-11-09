@@ -195,6 +195,9 @@ class TaintAnalysis(ast.NodeVisitor):
             if nodes_equal(node.func.value, self.taint_obj):
                 self.taint_exprs.add(node)
 
+            # Check for functions on ourself
+            # Note that this doesn't currently work when used
+            # as a decorator since im_class will not be set
             if isinstance(node.func.value, ast.Name) and \
                     node.func.value.id == 'self' and \
                     hasattr(self.func, 'im_class'):
