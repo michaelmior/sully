@@ -45,6 +45,26 @@ class ParentTransformer(ast.NodeTransformer):
 
         # Assign the parent and ancestors method and return the node
         node.parent = parent
+
+        # Keep track of the maximum and minimum line number
+        if not node.parent:
+            if 'lineno' in node._attributes:
+                node.maxlineno = node.lineno
+                node.minlineno = node.lineno
+            else:
+                node.maxlineno = None
+                node.minlineno = None
+        if node.parent and 'lineno' in node._attributes:
+            if hasattr(node.parent, 'maxlineno'):
+                node.parent.maxlineno = max(node.lineno, node.parent.maxlineno)
+            else:
+                node.parent.maxlineno = node.lineno
+
+            if hasattr(node.parent, 'minlineno'):
+                node.parent.minlineno = min(node.lineno, node.parent.minlineno)
+            else:
+                node.parent.minlineno = node.lineno
+
         node.ancestors = _ancestors.__get__(node, ast.AST)
         return node
 
@@ -69,8 +89,8 @@ class TaintAnalysis(ast.NodeVisitor):
         func_ast = ast.parse(source)
 
         # Start visiting the root of the function's AST
-        func_ast = ParentTransformer().visit(func_ast)
-        self.visit(func_ast)
+        self.func_ast = ParentTransformer().visit(func_ast)
+        self.visit(self.func_ast)
 
     # Get the identifier to use when recording a read/write
     def get_id(self, node):
