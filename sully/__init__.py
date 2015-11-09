@@ -70,8 +70,18 @@ class ParentTransformer(ast.NodeTransformer):
 
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
-    def __init__(self, func, taint_obj=None):
-        self.func = func
+    def __init__(self, func_or_ast, taint_obj=None):
+        # If we were given a function, save it
+        if not isinstance(func_or_ast, ast.AST):
+            self.func = func_or_ast
+
+            # Get the source code of the function and parse the AST
+            source = get_func_source(self.func)
+            func_ast = ast.parse(source)
+        else:
+            func_ast = func_or_ast
+            self.func = None
+
         if taint_obj is not None:
             self.taint_obj = ast.parse(taint_obj).body[0].value
         else:
@@ -83,10 +93,6 @@ class TaintAnalysis(ast.NodeVisitor):
         self.write_lines = defaultdict(list)
         self.taint_exprs = set()
         self.tainted_by = defaultdict(list)
-
-        # Get the source code of the function and parse the AST
-        source = get_func_source(func)
-        func_ast = ast.parse(source)
 
         # Start visiting the root of the function's AST
         self.func_ast = ParentTransformer().visit(func_ast)
