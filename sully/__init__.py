@@ -283,3 +283,25 @@ def block_including(func_ast, minlineno, maxlineno):
             body.append(node)
 
     return body
+
+# Get the expressions which are read and written within a given block
+def block_inout(func_ast, minlineno, maxlineno):
+    taint = TaintAnalysis(func_ast)
+
+    in_exprs = set()
+    for obj, lines in taint.read_lines.iteritems():
+        for lineno in lines:
+            if lineno >= minlineno and lineno <= maxlineno:
+                in_exprs.add(obj)
+
+    # TODO Check for values read which are initialized within this block
+
+    out_exprs = set()
+    for obj, lines in taint.write_lines.iteritems():
+        for lineno in lines:
+            if lineno >= minlineno and lineno <= maxlineno:
+                out_exprs.add(obj)
+
+    # TODO Check for written values never read again outside this block
+
+    return in_exprs, out_exprs

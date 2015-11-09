@@ -1,7 +1,7 @@
 import pytest
 
 import ast
-from sully import TaintAnalysis, block_including
+from sully import TaintAnalysis, block_including, block_inout
 
 # Below are simple objects we use for testing
 # ==========
@@ -40,3 +40,8 @@ def test_block_list(taint):
     block = block_including(taint.func_ast.body[0].body, 5, 6)
     assert len(block) == 1
     assert isinstance(block[0], ast.For)
+
+def test_block_inout(taint):
+    in_exprs, out_exprs = block_inout(taint.func_ast, 3, 6)
+    assert in_exprs == set(['x', 'y'])
+    assert out_exprs == set(['x'])
