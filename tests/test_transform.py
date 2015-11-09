@@ -30,3 +30,8 @@ def test_linenos(taint):
     assert for_node is not None
     assert for_node.minlineno == 3
     assert for_node.maxlineno == 6
+
+def test_block(taint):
+    block = block_including(taint.func_ast, 5, 6)
+    assert len(block) == 1
+    assert isinstance(block[0], ast.For)
