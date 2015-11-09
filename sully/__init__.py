@@ -98,14 +98,19 @@ class TaintAnalysis(ast.NodeVisitor):
             # Simple variables get recorded by name
             return node.id
         elif isinstance(node, ast.Attribute):
-            # We don't track writes to anything not on `self`
-            if node.value.id == 'self':
-                return ('self', node.attr)
+            # We don't track writes to anything not on
+            # `self` and assume constants are read-only
+            if node.value.id == 'self' or node.attr.isupper():
+                return (node.value.id, node.attr)
             else:
+                print(ast.dump(node))
                 raise Exception()
         elif isinstance(node, ast.Subscript):
             # Record array writes as a write to the whole array
             return self.get_id(node.value)
+        elif isinstance(node, (ast.Call, ast.Str)):
+            # We only need to track this to propagate
+            return node
         else:
             # XXX Debugging for things we don't support
             print(ast.dump(node))
@@ -114,7 +119,7 @@ class TaintAnalysis(ast.NodeVisitor):
 
     # Check ant propagate taint if necessary
     def check_add_taint(self, source, target):
-        if source in self.taint_exprs:
+        if source and source in self.taint_exprs:
             self.tainted_by[target].extend(self.tainted_by[source][:])
             self.taint_exprs.add(target)
 
@@ -184,7 +189,9 @@ class TaintAnalysis(ast.NodeVisitor):
             if nodes_equal(node.func.value, self.taint_obj):
                 self.taint_exprs.add(node)
 
-            if node.func.value.id == 'self':
+            if isinstance(node.func.value, ast.Name) and \
+                    node.func.value.id == 'self' and \
+                    hasattr(self.func, 'im_class'):
                 other_func = getattr(self.func.im_class, node.func.attr)
                 other_args = inspect.getargspec(other_func).args[1:]
                 ta = TaintAnalysis(other_func)
@@ -209,16 +216,17 @@ class TaintAnalysis(ast.NodeVisitor):
                 for var, _ in ta.write_lines.items():
                     if isinstance(var, tuple):
                         self.write_lines[var].append(node.lineno)
-        else:
-            raise Exception()
 
         # Visit function parameters to record reads
         for arg in node.args:
             self.visit(arg)
+            self.check_add_taint(arg, node)
         if node.starargs:
             self.visit(node.starargs)
+            self.check_add_taint(node.starargs, node)
         if node.kwargs:
             self.visit(node.kwargs)
+            self.check_add_taint(node.kwargs, node)
 
 # Check if two AST nodes are equal
 def nodes_equal(node1, node2):
