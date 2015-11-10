@@ -323,6 +323,7 @@ def block_inout(func_ast, minlineno, maxlineno):
         reads_after = any(lineno > maxlineno
                 for lineno in taint.read_lines[obj])
 
+        # If in range and not a local variable never read again, include it
         if in_range and (not is_local or reads_after):
             out_exprs.add(obj)
 
