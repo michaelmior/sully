@@ -99,6 +99,20 @@ class TaintAnalysis(ast.NodeVisitor):
         self.func_ast = ParentTransformer().visit(func_ast)
         self.visit(self.func_ast)
 
+    # Get all functions called in this range
+    def functions_in_range(self, minlineno, maxlineno):
+        functions = set()
+        for function, linenos in self.functions.iteritems():
+            for lineno in linenos:
+                if lineno >= minlineno and lineno <= maxlineno:
+                    functions.add(function)
+                    break
+
+            if function in functions:
+                continue
+
+        return functions
+
     # Get the identifier to use when recording a read/write
     def get_id(self, node):
         if isinstance(node, ast.Name):
@@ -295,9 +309,31 @@ def block_including(func_ast, minlineno, maxlineno):
     return body
 
 # Get the expressions which are read and written within a given block
-def block_inout(func_ast, minlineno, maxlineno):
-    taint = TaintAnalysis(func_ast)
-    arg_names = set([arg.id for arg in func_ast.body[0].args.args])
+def block_inout(func_or_ast, minlineno, maxlineno):
+    taint = TaintAnalysis(func_or_ast)
+    arg_names = set([arg.id for arg in taint.func_ast.body[0].args.args])
+    
+    # Get all functions called in this range
+    functions = taint.functions_in_range(minlineno, maxlineno)
+    read_lines = taint.read_lines
+    write_lines = taint.write_lines
+    for function in functions:
+        if function[0] == 'self' and hasattr(func_or_ast, 'im_class'):
+            # Perform analysis on the other functions
+            other_func = getattr(func_or_ast.im_class, function[1])
+            other_taint = TaintAnalysis(other_func)
+
+            # Ensure we keep going
+            # XXX This will probably break in the case of mutual recursion
+            functions.union(other_taint.functions)
+
+            # Copy over expressions from the helper
+            for expr, _ in other_taint.read_lines.items():
+                if isinstance(expr, tuple):
+                    read_lines[expr].append(minlineno)
+            for expr, _ in other_taint.write_lines.items():
+                if isinstance(expr, tuple):
+                    write_lines[expr].append(minlineno)
 
     in_exprs = set()
     for obj, lines in taint.read_lines.iteritems():

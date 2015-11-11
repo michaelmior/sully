@@ -1,6 +1,6 @@
 import pytest
 
-from sully import TaintAnalysis
+from sully import TaintAnalysis, block_inout
 
 # Below are simple objects we use for testing
 # ==========
@@ -12,10 +12,13 @@ class Bar:
     x = 2
     y = [4, 5, 6]
 
+    def helper2(self):
+        return self.b
+
     def helper(self, x):
         x.append(2)
         self.a = 3
-        return self.z
+        return self.z + self.helper2()
 
     def foo(self):                    # 1
         y = [1, 2, 3]                 # 2
@@ -78,3 +81,9 @@ def test_helper_write(taint):
 
 def test_helper_parameter_write(taint):
     assert taint.write_lines['a'] == [11, 14]
+
+def test_helper_inout(taint):
+    in_exprs, out_exprs = block_inout(taint.func, 14, 14)
+    assert ('self', 'z') in in_exprs
+    assert ('self', 'b') in in_exprs
+    assert ('self', 'a') in out_exprs
