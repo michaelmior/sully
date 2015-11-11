@@ -93,6 +93,7 @@ class TaintAnalysis(ast.NodeVisitor):
         self.write_lines = defaultdict(list)
         self.taint_exprs = set()
         self.tainted_by = defaultdict(list)
+        self.functions = defaultdict(list)
 
         # Start visiting the root of the function's AST
         self.func_ast = ParentTransformer().visit(func_ast)
@@ -188,6 +189,12 @@ class TaintAnalysis(ast.NodeVisitor):
     # Record reads and writes from functions called within our function
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):
+            # Track this function call
+            if isinstance(node.func, ast.Attribute) and \
+               isinstance(node.func.value, ast.Name):
+                func_id = (node.func.value.id, node.func.attr)
+                self.functions[func_id].append(node.lineno)
+
             # Assume function calls on objects modify data
             self.write_lines[self.get_id(node.func.value)].append(node.lineno)
 

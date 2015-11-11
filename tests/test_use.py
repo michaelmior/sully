@@ -38,6 +38,9 @@ class Bar:
 def taint():
     return TaintAnalysis(Bar.foo)
 
+def test_helper_track(taint):
+    assert taint.functions[('self', 'helper')] == [14]
+
 def test_function_write(taint):
     assert taint.write_lines['z'] == [9, 10]
 
