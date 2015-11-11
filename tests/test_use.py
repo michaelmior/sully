@@ -42,45 +42,45 @@ def taint():
     return TaintAnalysis(Bar.foo)
 
 def test_helper_track(taint):
-    assert taint.functions[('self', 'helper')] == [14]
+    assert taint.functions[('self', 'helper')] == set([14])
 
 def test_function_write(taint):
-    assert taint.write_lines['z'] == [9, 10]
+    assert taint.write_lines['z'] == set([9, 10])
 
 def test_simple_read(taint):
-    assert taint.read_lines['x'] == [8]
+    assert taint.read_lines['x'] == set([8])
 
 def test_simple_write(taint):
-    assert taint.write_lines['x'] == [3]
+    assert taint.write_lines['x'] == set([3])
 
 def test_self_read(taint):
-    assert taint.read_lines[('self', 'x')] == [4]
+    assert taint.read_lines[('self', 'x')] == set([4])
 
 def test_self_write(taint):
-    assert taint.write_lines[('self', 'x')] == [5, 7]
+    assert taint.write_lines[('self', 'x')] == set([5, 7])
 
 def test_constaint(taint):
-    assert taint.read_lines[('constants', 'BAZ')] == [8]
+    assert taint.read_lines[('constants', 'BAZ')] == set([8])
 
 def test_array_read(taint):
-    assert taint.read_lines['y'] == [3, 4, 5, 6, 7]
+    assert taint.read_lines['y'] == set([3, 4, 5, 6, 7])
 
 def test_array_write(taint):
-    assert taint.write_lines['y'] == [2]
+    assert taint.write_lines['y'] == set([2])
 
 def test_parameter_read(taint):
-    assert taint.read_lines['a'] == [14]
-    assert taint.read_lines['b'] == [14]
-    assert taint.read_lines['c'] == [14]
+    assert taint.read_lines['a'] == set([14])
+    assert taint.read_lines['b'] == set([14])
+    assert taint.read_lines['c'] == set([14])
 
 def test_helper_read(taint):
-    assert taint.read_lines[('self', 'z')] == [14]
+    assert taint.read_lines[('self', 'z')] == set([14])
 
 def test_helper_write(taint):
-    assert taint.write_lines[('self', 'a')] == [14]
+    assert taint.write_lines[('self', 'a')] == set([14])
 
 def test_helper_parameter_write(taint):
-    assert taint.write_lines['a'] == [11, 14]
+    assert taint.write_lines['a'] == set([11, 14])
 
 def test_helper_inout(taint):
     in_exprs, out_exprs = block_inout(taint.func, 14, 14)

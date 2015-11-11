@@ -89,11 +89,11 @@ class TaintAnalysis(ast.NodeVisitor):
         super(TaintAnalysis, self).__init__()
 
         # Initialize lists to track usage
-        self.read_lines = defaultdict(list)
-        self.write_lines = defaultdict(list)
+        self.read_lines = defaultdict(set)
+        self.write_lines = defaultdict(set)
         self.taint_exprs = set()
         self.tainted_by = defaultdict(list)
-        self.functions = defaultdict(list)
+        self.functions = defaultdict(set)
 
         # Start visiting the root of the function's AST
         self.func_ast = ParentTransformer().visit(func_ast)
@@ -154,7 +154,7 @@ class TaintAnalysis(ast.NodeVisitor):
         self.visit(node.value)
 
         for target in node.targets:
-            self.write_lines[self.get_id(target)].append(node.lineno)
+            self.write_lines[self.get_id(target)].add(node.lineno)
             self.check_add_taint(node.value, target)
 
     # Copy the taint for comparison operators
@@ -192,26 +192,32 @@ class TaintAnalysis(ast.NodeVisitor):
     # Record a read of an attribute on some value
     def visit_Attribute(self, node):
         var = (self.get_id(node.value), node.attr)
-        self.read_lines[var].append(node.lineno)
+        self.read_lines[var].add(node.lineno)
+
+        self.visit(node.value)
 
     # Record a read of a simple variable
     def visit_Name(self, node):
         # This ignores parameter names and references to self since
         # we will capture these when we visit Attribute nodes
         if isinstance(node.ctx, ast.Load) and node.id != 'self':
-            self.read_lines[node.id].append(node.lineno)
+            self.read_lines[node.id].add(node.lineno)
 
     # Record reads and writes from functions called within our function
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):
+            # Continue down the tree if we have multiple attribute lookups
+            if not isinstance(node.func.value, ast.Name):
+                self.visit(node.func)
+
             # Track this function call
             if isinstance(node.func, ast.Attribute) and \
                isinstance(node.func.value, ast.Name):
                 func_id = (node.func.value.id, node.func.attr)
-                self.functions[func_id].append(node.lineno)
+                self.functions[func_id].add(node.lineno)
 
             # Assume function calls on objects modify data
-            self.write_lines[self.get_id(node.func.value)].append(node.lineno)
+            self.write_lines[self.get_id(node.func.value)].add(node.lineno)
 
             # Record this node as one which introduces taint
             if nodes_equal(node.func.value, self.taint_obj):
@@ -229,7 +235,7 @@ class TaintAnalysis(ast.NodeVisitor):
 
                 # Copy functions used by the other function
                 for func_id in ta.functions.iterkeys():
-                    self.functions[func_id].append(node.lineno)
+                    self.functions[func_id].add(node.lineno)
 
                 # Check arguments which were read written
                 # Note that we're being pessimistic for writes here since
@@ -239,18 +245,18 @@ class TaintAnalysis(ast.NodeVisitor):
                     if isinstance(arg, ast.Name):
                         arg_name = other_args[i]
                         if ta.read_lines.has_key(arg_name):
-                            self.read_lines[arg.id].append(node.lineno)
+                            self.read_lines[arg.id].add(node.lineno)
                         if ta.write_lines.has_key(arg_name):
-                            self.write_lines[arg.id].append(node.lineno)
+                            self.write_lines[arg.id].add(node.lineno)
 
                 # Copy over attribute nodes which were read or written
                 for var, _ in ta.read_lines.items():
                     if isinstance(var, tuple):
-                        self.read_lines[var].append(node.lineno)
+                        self.read_lines[var].add(node.lineno)
 
                 for var, _ in ta.write_lines.items():
                     if isinstance(var, tuple):
-                        self.write_lines[var].append(node.lineno)
+                        self.write_lines[var].add(node.lineno)
 
         # Visit function parameters to record reads
         for arg in node.args:
@@ -331,10 +337,10 @@ def block_inout(func_or_ast, minlineno, maxlineno):
             # Copy over expressions from the helper
             for expr, _ in other_taint.read_lines.items():
                 if isinstance(expr, tuple):
-                    read_lines[expr].append(minlineno)
+                    read_lines[expr].add(minlineno)
             for expr, _ in other_taint.write_lines.items():
                 if isinstance(expr, tuple):
-                    write_lines[expr].append(minlineno)
+                    write_lines[expr].add(minlineno)
 
     in_exprs = set()
     for obj, lines in taint.read_lines.iteritems():
