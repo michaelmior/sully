@@ -100,11 +100,12 @@ class TaintAnalysis(ast.NodeVisitor):
         self.visit(self.func_ast)
 
     # Get all functions called in this range
-    def functions_in_range(self, minlineno, maxlineno):
+    def functions_in_range(self, minlineno=None, maxlineno=None):
         functions = set()
         for function, linenos in self.functions.iteritems():
             for lineno in linenos:
-                if lineno >= minlineno and lineno <= maxlineno:
+                if (not minlineno or lineno >= minlineno) and \
+                   (not maxlineno or lineno <= maxlineno):
                     functions.add(function)
                     break
 
