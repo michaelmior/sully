@@ -226,6 +226,10 @@ class TaintAnalysis(ast.NodeVisitor):
                 other_args = inspect.getargspec(other_func).args[1:]
                 ta = TaintAnalysis(other_func)
 
+                # Copy functions used by the other function
+                for func_id in ta.functions.iterkeys():
+                    self.functions[func_id].append(node.lineno)
+
                 # Check arguments which were read written
                 # Note that we're being pessimistic for writes here since
                 # assignments just "write" to the local variable for parameter
@@ -322,10 +326,6 @@ def block_inout(func_or_ast, minlineno, maxlineno):
             # Perform analysis on the other functions
             other_func = getattr(func_or_ast.im_class, function[1])
             other_taint = TaintAnalysis(other_func)
-
-            # Ensure we keep going
-            # XXX This will probably break in the case of mutual recursion
-            functions.union(other_taint.functions)
 
             # Copy over expressions from the helper
             for expr, _ in other_taint.read_lines.items():
