@@ -290,6 +290,7 @@ def block_including(func_ast, minlineno, maxlineno):
 # Get the expressions which are read and written within a given block
 def block_inout(func_ast, minlineno, maxlineno):
     taint = TaintAnalysis(func_ast)
+    arg_names = set([arg.id for arg in func_ast.body[0].args.args])
 
     in_exprs = set()
     for obj, lines in taint.read_lines.iteritems():
@@ -305,7 +306,7 @@ def block_inout(func_ast, minlineno, maxlineno):
                 for lineno in taint.write_lines[obj])
 
         # If in range and not a local used only in this block, include it
-        if in_range and (not is_local or written_before):
+        if in_range and (not is_local or written_before or obj in arg_names):
             in_exprs.add(obj)
 
     out_exprs = set()

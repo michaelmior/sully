@@ -6,12 +6,13 @@ from sully import TaintAnalysis, block_including, block_inout
 # Below are simple objects we use for testing
 # ==========
 
-def foo():
+def foo(z):
     x = [1, 2, 3]                       # 2
     for y in x:                         # 3
         print(y)                        # 4
         x.append(y + 1)                 # 5
         break                           # 6
+    return z                            # 7
 
 # ==========
 
@@ -42,6 +43,6 @@ def test_block_list(taint):
     assert isinstance(block[0], ast.For)
 
 def test_block_inout(taint):
-    in_exprs, out_exprs = block_inout(taint.func_ast, 3, 6)
-    assert in_exprs == set(['x'])
+    in_exprs, out_exprs = block_inout(taint.func_ast, 3, 7)
+    assert in_exprs == set(['x', 'z'])
     assert out_exprs == set([])
