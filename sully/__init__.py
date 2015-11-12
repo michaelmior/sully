@@ -7,8 +7,8 @@ import itertools
 def get_func_source(func):
     source = inspect.getsourcelines(func)[0]
     spaces = len(source[0]) - len(source[0].lstrip())
-    source = [line[spaces:] for line in source if not line.isspace()]
-    return ''.join(line for line in source if line[0] != '@')
+    source = [line[spaces:] for line in source]
+    return ''.join(line for line in source if len(line) == 0 or line[0] != '@')
 
 # Produce the AST for the body of a function
 def get_func_ast(func):
