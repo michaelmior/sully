@@ -8,7 +8,17 @@ def get_func_source(func):
     source = inspect.getsourcelines(func)[0]
     spaces = len(source[0]) - len(source[0].lstrip())
     source = [line[spaces:] for line in source]
-    return ''.join(line for line in source if len(line) == 0 or line[0] != '@')
+
+    # Skip lines starting wtih @ and make empty lines into comments
+    # so we correctly count line numbers later (ast module bug?)
+    source_string = ''
+    for line in source:
+        if len(line) == 0:
+            line = '#\n'
+        if line[0] == '@':
+            continue
+        source_string += line
+    return source_string
 
 # Produce the AST for the body of a function
 def get_func_ast(func):
