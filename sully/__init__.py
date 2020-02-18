@@ -233,6 +233,11 @@ class TaintAnalysis(ast.NodeVisitor):
                 func_id = (node.func.value.id, node.func.attr)
                 self.functions[func_id].add(node.lineno)
 
+            # If the function is called on previously declared value then
+            # value should be recorded in the read_lines.
+            if isinstance(node.func.value.ctx, ast.Load):
+                self.read_lines[self.get_id(node.func.value)].add(node.lineno)
+
             # Assume function calls on objects modify data
             self.write_lines[self.get_id(node.func.value)].add(node.lineno)
 
