@@ -66,7 +66,7 @@ def test_array_read(taint):
     assert taint.read_lines['y'] == set([3, 4, 5, 6, 7])
 
 def test_array_write(taint):
-    assert taint.write_lines['y'] == set([2])
+    assert taint.write_lines['y'] == set([2, 4])
 
 def test_parameter_read(taint):
     assert taint.read_lines['a'] == set([14])
