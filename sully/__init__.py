@@ -167,6 +167,13 @@ class TaintAnalysis(ast.NodeVisitor):
             self.write_lines[self.get_id(target)].add(node.lineno)
             self.check_add_taint(node.value, target)
 
+    # Record read and write to a given value
+    def visit_AugAssign(self, node):
+        self.visit(node.value)
+        self.read_lines[self.get_id(node.target)].add(node.lineno)
+        self.write_lines[self.get_id(node.target)].add(node.lineno)
+        self.check_add_taint(node.value, node.target)
+
     # Copy the taint for comparison operators
     def visit_Compare(self, node):
         # XXX We only handle a single comparison
