@@ -169,7 +169,8 @@ class TaintAnalysis(ast.NodeVisitor):
         self.visit(node.value)
 
         for target in node.targets:
-            self.visit(target)
+            if isinstance(target, ast.Subscript):
+                self.visit(target)
             self.write_lines[self.get_id(target)].add(node.lineno)
 
             # Record type of each Variable
