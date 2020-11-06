@@ -1,5 +1,5 @@
 # Sully
-[![Build Status](https://travis-ci.org/michaelmior/sully.svg?branch=master)](https://travis-ci.org/michaelmior/sully)
+[![Build Status](https://travis-ci.com/michaelmior/sully.svg?branch=master)](https://travis-ci.com/michaelmior/sully)
 
 ![Sully](https://vignette.wikia.nocookie.net/monstersincmovies/images/0/09/Sulley_002.jpg/revision/latest/top-crop/width/360/height/450?cb=20130512141939)
 
