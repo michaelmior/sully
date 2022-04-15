@@ -100,10 +100,12 @@ class TaintAnalysis(ast.NodeVisitor):
 
         # Initialize lists to track usage
         self.read_lines = defaultdict(set)
+        self.stores = defaultdict(int)
         self.write_lines = defaultdict(set)
         self.taint_exprs = set()
         self.tainted_by = defaultdict(list)
         self.functions = defaultdict(set)
+        self.variableTypes = defaultdict(set)
 
         # Start visiting the root of the function's AST
         self.func_ast = ParentTransformer().visit(func_ast)
@@ -159,13 +161,29 @@ class TaintAnalysis(ast.NodeVisitor):
     def visit(self, node):
         super(TaintAnalysis, self).visit(node)
 
+    def visit_Subscript(self, node):
+        self.visit(node.value)
+
     # Record a write to a given value
     def visit_Assign(self, node):
         self.visit(node.value)
 
         for target in node.targets:
+            if isinstance(target, ast.Subscript):
+                self.visit(target)
             self.write_lines[self.get_id(target)].add(node.lineno)
+
+            # Record type of each Variable
+            if self.get_id(target) not in self.variableTypes:
+                self.variableTypes[self.get_id( target)] = type(node.value)
             self.check_add_taint(node.value, target)
+
+    # Record read and write to a given value
+    def visit_AugAssign(self, node):
+        self.visit(node.value)
+        self.read_lines[self.get_id(node.target)].add(node.lineno)
+        self.write_lines[self.get_id(node.target)].add(node.lineno)
+        self.check_add_taint(node.value, node.target)
 
     # Copy the taint for comparison operators
     def visit_Compare(self, node):
@@ -203,7 +221,6 @@ class TaintAnalysis(ast.NodeVisitor):
     def visit_Attribute(self, node):
         var = (self.get_id(node.value), node.attr)
         self.read_lines[var].add(node.lineno)
-
         self.visit(node.value)
 
     # Record a read of a simple variable
@@ -212,6 +229,10 @@ class TaintAnalysis(ast.NodeVisitor):
         # we will capture these when we visit Attribute nodes
         if isinstance(node.ctx, ast.Load) and node.id != 'self':
             self.read_lines[node.id].add(node.lineno)
+
+        # Record line number of each variable when it is declared
+        if isinstance(node.ctx, ast.Store):
+            self.stores[str(node.id)] = node.lineno
 
     # Record reads and writes from functions called within our function
     def visit_Call(self, node):
@@ -225,6 +246,11 @@ class TaintAnalysis(ast.NodeVisitor):
                isinstance(node.func.value, ast.Name):
                 func_id = (node.func.value.id, node.func.attr)
                 self.functions[func_id].add(node.lineno)
+
+                # If the function is called on previously declared value then
+                # value should be recorded in the read_lines.
+                if isinstance(node.func.value.ctx, ast.Load):
+                    self.read_lines[self.get_id(node.func.value)].add(node.lineno)
 
             # Assume function calls on objects modify data
             self.write_lines[self.get_id(node.func.value)].add(node.lineno)
