@@ -65,12 +65,12 @@ class ParentTransformer(ast.NodeTransformer):
                 node.maxlineno = None
                 node.minlineno = None
         if node.parent and 'lineno' in node._attributes:
-            if hasattr(node.parent, 'maxlineno'):
+            if hasattr(node.parent, 'maxlineno') and node.parent.maxlineno is not None:
                 node.parent.maxlineno = max(node.lineno, node.parent.maxlineno)
             else:
                 node.parent.maxlineno = node.lineno
 
-            if hasattr(node.parent, 'minlineno'):
+            if hasattr(node.parent, 'minlineno') and node.parent.minlineno is not None:
                 node.parent.minlineno = min(node.lineno, node.parent.minlineno)
             else:
                 node.parent.minlineno = node.lineno
@@ -112,7 +112,7 @@ class TaintAnalysis(ast.NodeVisitor):
     # Get all functions called in this range
     def functions_in_range(self, minlineno=None, maxlineno=None):
         functions = set()
-        for function, linenos in self.functions.iteritems():
+        for function, linenos in self.functions.items():
             for lineno in linenos:
                 if (not minlineno or lineno >= minlineno) and \
                    (not maxlineno or lineno <= maxlineno):
@@ -272,12 +272,6 @@ class TaintAnalysis(ast.NodeVisitor):
         for arg in node.args:
             self.visit(arg)
             self.check_add_taint(arg, node)
-        if node.starargs:
-            self.visit(node.starargs)
-            self.check_add_taint(node.starargs, node)
-        if node.kwargs:
-            self.visit(node.kwargs)
-            self.check_add_taint(node.kwargs, node)
 
 # Check if two AST nodes are equal
 def nodes_equal(node1, node2):
@@ -288,13 +282,13 @@ def nodes_equal(node1, node2):
     walk1 = ast.walk(node1)
     walk2 = ast.walk(node2)
 
-    for node1, node2 in itertools.izip(walk1, walk2):
+    for node1, node2 in itertools.zip_longest(walk1, walk2):
         # Check that there are the same number of fields
         if len(node1._fields) != len(node2._fields):
             return False
 
         # Check that all field values are equal
-        for field1, field2 in itertools.izip(node1._fields, node2._fields):
+        for field1, field2 in itertools.zip_longest(node1._fields, node2._fields):
             if field1 != field2:
                 return False
 
@@ -332,7 +326,7 @@ def block_including(func_ast, minlineno, maxlineno):
 # Get the expressions which are read and written within a given block
 def block_inout(func_or_ast, minlineno, maxlineno):
     taint = TaintAnalysis(func_or_ast)
-    arg_names = set([arg.id for arg in taint.func_ast.body[0].args.args])
+    arg_names = set([getattr(arg, 'id', getattr(arg, 'arg', None)) for arg in taint.func_ast.body[0].args.args])
     
     # Get all functions called in this range
     functions = taint.functions_in_range(minlineno, maxlineno)
@@ -353,7 +347,7 @@ def block_inout(func_or_ast, minlineno, maxlineno):
                     write_lines[expr].add(minlineno)
 
     in_exprs = set()
-    for obj, lines in taint.read_lines.iteritems():
+    for obj, lines in taint.read_lines.items():
         # Check if any read happens within our range
         in_range = any(lineno >= minlineno and lineno <= maxlineno
                 for lineno in lines)
@@ -370,7 +364,7 @@ def block_inout(func_or_ast, minlineno, maxlineno):
             in_exprs.add(obj)
 
     out_exprs = set()
-    for obj, lines in taint.write_lines.iteritems():
+    for obj, lines in taint.write_lines.items():
         # Check if any write happens within our range
         in_range = any(lineno >= minlineno and lineno <= maxlineno
                 for lineno in lines)
