@@ -65,12 +65,12 @@ class ParentTransformer(ast.NodeTransformer):
                 node.maxlineno = None
                 node.minlineno = None
         if node.parent and 'lineno' in node._attributes:
-            if hasattr(node.parent, 'maxlineno'):
+            if getattr(node.parent, 'maxlineno', None) is not None:
                 node.parent.maxlineno = max(node.lineno, node.parent.maxlineno)
             else:
                 node.parent.maxlineno = node.lineno
 
-            if hasattr(node.parent, 'minlineno'):
+            if getattr(node.parent, 'minlineno', None) is not None:
                 node.parent.minlineno = min(node.lineno, node.parent.minlineno)
             else:
                 node.parent.minlineno = node.lineno
@@ -112,7 +112,7 @@ class TaintAnalysis(ast.NodeVisitor):
     # Get all functions called in this range
     def functions_in_range(self, minlineno=None, maxlineno=None):
         functions = set()
-        for function, linenos in self.functions.iteritems():
+        for function, linenos in self.functions.items():
             for lineno in linenos:
                 if (not minlineno or lineno >= minlineno) and \
                    (not maxlineno or lineno <= maxlineno):
@@ -238,13 +238,13 @@ class TaintAnalysis(ast.NodeVisitor):
             # as a decorator since im_class will not be set
             if isinstance(node.func.value, ast.Name) and \
                     node.func.value.id == 'self' and \
-                    hasattr(self.func, 'im_class'):
-                other_func = getattr(self.func.im_class, node.func.attr)
-                other_args = inspect.getargspec(other_func).args[1:]
+                    hasattr(self.func, '__self__'):
+                other_func = getattr(self.func.__self__.__class__, node.func.attr)
+                other_args = inspect.getfullargspec(other_func).args[1:]
                 ta = TaintAnalysis(other_func)
 
                 # Copy functions used by the other function
-                for func_id in ta.functions.iterkeys():
+                for func_id in ta.functions.keys():
                     self.functions[func_id].add(node.lineno)
 
                 # Check arguments which were read written
@@ -254,9 +254,9 @@ class TaintAnalysis(ast.NodeVisitor):
                 for i, arg in enumerate(node.args):
                     if isinstance(arg, ast.Name):
                         arg_name = other_args[i]
-                        if ta.read_lines.has_key(arg_name):
+                        if arg_name in ta.read_lines:
                             self.read_lines[arg.id].add(node.lineno)
-                        if ta.write_lines.has_key(arg_name):
+                        if arg_name in ta.write_lines:
                             self.write_lines[arg.id].add(node.lineno)
 
                 # Copy over attribute nodes which were read or written
@@ -272,12 +272,9 @@ class TaintAnalysis(ast.NodeVisitor):
         for arg in node.args:
             self.visit(arg)
             self.check_add_taint(arg, node)
-        if node.starargs:
-            self.visit(node.starargs)
-            self.check_add_taint(node.starargs, node)
-        if node.kwargs:
-            self.visit(node.kwargs)
-            self.check_add_taint(node.kwargs, node)
+        for keyword in node.keywords:
+            self.visit(keyword.value)
+            self.check_add_taint(keyword.value, node)
 
 # Check if two AST nodes are equal
 def nodes_equal(node1, node2):
@@ -288,13 +285,13 @@ def nodes_equal(node1, node2):
     walk1 = ast.walk(node1)
     walk2 = ast.walk(node2)
 
-    for node1, node2 in itertools.izip(walk1, walk2):
+    for node1, node2 in zip(walk1, walk2):
         # Check that there are the same number of fields
         if len(node1._fields) != len(node2._fields):
             return False
 
         # Check that all field values are equal
-        for field1, field2 in itertools.izip(node1._fields, node2._fields):
+        for field1, field2 in zip(node1._fields, node2._fields):
             if field1 != field2:
                 return False
 
@@ -332,16 +329,16 @@ def block_including(func_ast, minlineno, maxlineno):
 # Get the expressions which are read and written within a given block
 def block_inout(func_or_ast, minlineno, maxlineno):
     taint = TaintAnalysis(func_or_ast)
-    arg_names = set([arg.id for arg in taint.func_ast.body[0].args.args])
+    arg_names = set([arg.arg for arg in taint.func_ast.body[0].args.args])
     
     # Get all functions called in this range
     functions = taint.functions_in_range(minlineno, maxlineno)
     read_lines = taint.read_lines
     write_lines = taint.write_lines
     for function in functions:
-        if function[0] == 'self' and hasattr(func_or_ast, 'im_class'):
+        if function[0] == 'self' and hasattr(func_or_ast, '__self__'):
             # Perform analysis on the other functions
-            other_func = getattr(func_or_ast.im_class, function[1])
+            other_func = getattr(func_or_ast.__self__.__class__, function[1])
             other_taint = TaintAnalysis(other_func)
 
             # Copy over expressions from the helper
@@ -353,7 +350,7 @@ def block_inout(func_or_ast, minlineno, maxlineno):
                     write_lines[expr].add(minlineno)
 
     in_exprs = set()
-    for obj, lines in taint.read_lines.iteritems():
+    for obj, lines in taint.read_lines.items():
         # Check if any read happens within our range
         in_range = any(lineno >= minlineno and lineno <= maxlineno
                 for lineno in lines)
@@ -370,7 +367,7 @@ def block_inout(func_or_ast, minlineno, maxlineno):
             in_exprs.add(obj)
 
     out_exprs = set()
-    for obj, lines in taint.write_lines.iteritems():
+    for obj, lines in taint.write_lines.items():
         # Check if any write happens within our range
         in_range = any(lineno >= minlineno and lineno <= maxlineno
                 for lineno in lines)
