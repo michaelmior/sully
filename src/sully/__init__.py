@@ -81,6 +81,7 @@ class ParentTransformer(ast.NodeTransformer):
 # Traverse the AST to identify reads and writes to values
 class TaintAnalysis(ast.NodeVisitor):
     def __init__(self, func_or_ast, taint_obj=None):
+        print(f"Analyzing: {func_or_ast}")
         # If we were given a function, save it
         if not isinstance(func_or_ast, ast.AST):
             self.func = func_or_ast
@@ -236,12 +237,15 @@ class TaintAnalysis(ast.NodeVisitor):
             # Check for functions on ourself
             # Note that this doesn't currently work when used
             # as a decorator since im_class will not be set
+            print(f"Checking for helper call: {isinstance(node.func.value, ast.Name)}, {node.func.value.id if isinstance(node.func.value, ast.Name) else '' == 'self'}, {hasattr(self.func, '__self__')}")
             if isinstance(node.func.value, ast.Name) and \
                     node.func.value.id == 'self' and \
                     hasattr(self.func, '__self__'):
                 other_func = getattr(self.func.__self__.__class__, node.func.attr)
                 other_args = inspect.getfullargspec(other_func).args[1:]
+                print(f"other_args: {other_args}")
                 ta = TaintAnalysis(other_func)
+                print(f"ta.write_lines: {ta.write_lines}")
 
                 # Copy functions used by the other function
                 for func_id in ta.functions.keys():
@@ -252,12 +256,16 @@ class TaintAnalysis(ast.NodeVisitor):
                 # assignments just "write" to the local variable for parameter
                 # XXX Doesn't work for functions with starargs or kwargs
                 for i, arg in enumerate(node.args):
+                    print(f"arg: {ast.dump(arg)}")
+                    if isinstance(arg, ast.Starred):
+                        continue
                     if isinstance(arg, ast.Name):
-                        arg_name = other_args[i]
-                        if arg_name in ta.read_lines:
-                            self.read_lines[arg.id].add(node.lineno)
-                        if arg_name in ta.write_lines:
-                            self.write_lines[arg.id].add(node.lineno)
+                        if i < len(other_args):
+                            arg_name = other_args[i]
+                            if arg_name in ta.read_lines:
+                                self.read_lines[arg.id].add(node.lineno)
+                            if arg_name in ta.write_lines:
+                                self.write_lines[arg.id].add(node.lineno)
 
                 # Copy over attribute nodes which were read or written
                 for var, _ in ta.read_lines.items():
